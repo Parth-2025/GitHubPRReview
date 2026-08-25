@@ -559,9 +559,10 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'riskagent.analysis.ow
 ```python
 # src/riskagent/analysis/ownership.py
 from collections import Counter
+from typing import Optional
 
 
-def parse_codeowners(text: str) -> dict:
+def parse_codeowners(text: str) -> dict[str, str]:
     owners = {}
     for line in text.splitlines():
         line = line.strip()
@@ -575,7 +576,7 @@ def parse_codeowners(text: str) -> dict:
     return owners
 
 
-def match_codeowners(file_path: str, codeowners: dict):
+def match_codeowners(file_path: str, codeowners: dict[str, str]) -> Optional[str]:
     best_match = None
     best_len = -1
     for pattern, owner in codeowners.items():
@@ -586,7 +587,7 @@ def match_codeowners(file_path: str, codeowners: dict):
     return best_match
 
 
-def resolve_owner(file_path: str, codeowners: dict, commit_authors: list):
+def resolve_owner(file_path: str, codeowners: dict[str, str], commit_authors: list[str]) -> tuple[Optional[str], list[str]]:
     owner = match_codeowners(file_path, codeowners)
     if owner:
         return owner, []
@@ -691,11 +692,15 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'riskagent.analysis.de
 ```python
 # src/riskagent/analysis/dead_code.py
 from datetime import datetime
+from typing import Optional
 
+from riskagent.analysis.graph import DependencyGraph
 from riskagent.models import DeadCodeCandidate
 
 
-def find_dead_code_candidates(graph, cutoff_days: int = 180, now=None) -> list:
+def find_dead_code_candidates(
+    graph: DependencyGraph, cutoff_days: int = 180, now: Optional[datetime] = None
+) -> list[DeadCodeCandidate]:
     now = now or datetime.utcnow()
     candidates = []
     for node in graph.files:
@@ -851,6 +856,8 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'riskagent.github'`
 ```python
 # src/riskagent/github/client.py
 import base64
+from typing import Optional
+
 import requests
 
 
@@ -859,10 +866,10 @@ class GitHubClient:
         self.token = token
         self.base_url = base_url.rstrip("/")
 
-    def _headers(self):
+    def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"}
 
-    def get_repo_tree(self, owner: str, repo: str, branch: str = "main") -> list:
+    def get_repo_tree(self, owner: str, repo: str, branch: str = "main") -> list[str]:
         url = f"{self.base_url}/repos/{owner}/{repo}/git/trees/{branch}"
         resp = requests.get(url, headers=self._headers(), params={"recursive": "1"})
         resp.raise_for_status()
@@ -880,7 +887,7 @@ class GitHubClient:
         data = resp.json()
         return base64.b64decode(data["content"]).decode("utf-8")
 
-    def get_codeowners(self, owner: str, repo: str):
+    def get_codeowners(self, owner: str, repo: str) -> Optional[str]:
         for path in (".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"):
             try:
                 return self.get_file_content(owner, repo, path)
@@ -890,7 +897,7 @@ class GitHubClient:
                 raise
         return None
 
-    def get_commit_history(self, owner: str, repo: str, path: str) -> list:
+    def get_commit_history(self, owner: str, repo: str, path: str) -> list[dict]:
         url = f"{self.base_url}/repos/{owner}/{repo}/commits"
         resp = requests.get(url, headers=self._headers(), params={"path": path})
         resp.raise_for_status()
@@ -900,7 +907,7 @@ class GitHubClient:
             for c in commits
         ]
 
-    def get_open_pull_requests(self, owner: str, repo: str) -> list:
+    def get_open_pull_requests(self, owner: str, repo: str) -> list[dict]:
         url = f"{self.base_url}/repos/{owner}/{repo}/pulls"
         resp = requests.get(url, headers=self._headers(), params={"state": "open"})
         resp.raise_for_status()
@@ -920,7 +927,15 @@ class GitHubClient:
         resp.raise_for_status()
         return resp.json()
 
-    def create_issue(self, owner: str, repo: str, title: str, body: str, assignee=None, labels=None) -> dict:
+    def create_issue(
+        self,
+        owner: str,
+        repo: str,
+        title: str,
+        body: str,
+        assignee: Optional[str] = None,
+        labels: Optional[list[str]] = None,
+    ) -> dict:
         url = f"{self.base_url}/repos/{owner}/{repo}/issues"
         payload = {"title": title, "body": body}
         if assignee:
@@ -1145,14 +1160,16 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'riskagent.agent.judgm
 # src/riskagent/agent/judgment.py
 import json
 
+from riskagent.agent.llm_client import LLMClient
 from riskagent.agent.prompts import (
     DEAD_CODE_JUDGMENT_SYSTEM_PROMPT,
     OWNER_TIEBREAK_SYSTEM_PROMPT,
     RISK_JUSTIFICATION_SYSTEM_PROMPT,
 )
+from riskagent.models import DeadCodeCandidate, PullRequest, RiskFlag
 
 
-def judge_dead_code_candidate(candidate, file_content: str, llm):
+def judge_dead_code_candidate(candidate: DeadCodeCandidate, file_content: str, llm: LLMClient) -> DeadCodeCandidate:
     user_prompt = (
         f"File path: {candidate.file_path}\n"
         f"Reason flagged: {candidate.reason}\n"
@@ -1169,7 +1186,7 @@ def judge_dead_code_candidate(candidate, file_content: str, llm):
     return candidate
 
 
-def resolve_owner_tiebreak(file_path: str, candidate_owners: list, llm) -> str:
+def resolve_owner_tiebreak(file_path: str, candidate_owners: list[str], llm: LLMClient) -> str:
     user_prompt = f"File path: {file_path}\nTied candidate owners: {', '.join(candidate_owners)}"
     raw = llm.complete(OWNER_TIEBREAK_SYSTEM_PROMPT, user_prompt)
     try:
@@ -1179,7 +1196,7 @@ def resolve_owner_tiebreak(file_path: str, candidate_owners: list, llm) -> str:
     return parsed["owner"]
 
 
-def write_risk_justification(risk_flag, pr, llm):
+def write_risk_justification(risk_flag: RiskFlag, pr: PullRequest, llm: LLMClient) -> RiskFlag:
     user_prompt = (
         f"PR #{pr.number}: {pr.diff_summary}\n"
         f"Risk score: {risk_flag.score}\n"
@@ -1274,7 +1291,13 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'riskagent.actions'`
 
 ```python
 # src/riskagent/actions/writeback.py
-def post_risk_comment(client, owner: str, repo: str, risk_flag):
+from typing import Optional
+
+from riskagent.github.client import GitHubClient
+from riskagent.models import DeadCodeCandidate, RiskFlag
+
+
+def post_risk_comment(client: GitHubClient, owner: str, repo: str, risk_flag: RiskFlag) -> RiskFlag:
     body = (
         f"**Automated risk assessment** (score: {risk_flag.score})\n\n"
         f"Affected files: {', '.join(risk_flag.affected_files)}\n"
@@ -1286,7 +1309,9 @@ def post_risk_comment(client, owner: str, repo: str, risk_flag):
     return risk_flag
 
 
-def file_dead_code_issue(client, owner: str, repo: str, candidate, assignee=None):
+def file_dead_code_issue(
+    client: GitHubClient, owner: str, repo: str, candidate: DeadCodeCandidate, assignee: Optional[str] = None
+) -> DeadCodeCandidate:
     title = f"Cleanup candidate: {candidate.file_path}"
     body = f"{candidate.justification}\n\nFlagged by automated dead-code analysis."
     client.create_issue(owner, repo, title, body, assignee=assignee, labels=["cleanup-candidate"])
@@ -1403,9 +1428,13 @@ from riskagent.agent.judgment import (
     resolve_owner_tiebreak,
     write_risk_justification,
 )
+from riskagent.agent.llm_client import LLMClient
+from riskagent.github.client import GitHubClient
 
 
-def analyze_repo(github_client, llm_client, owner: str, repo: str, branch: str = "main") -> dict:
+def analyze_repo(
+    github_client: GitHubClient, llm_client: LLMClient, owner: str, repo: str, branch: str = "main"
+) -> dict:
     paths = github_client.get_repo_tree(owner, repo, branch)
     file_sources = {p: github_client.get_file_content(owner, repo, p, branch) for p in paths}
     codeowners_text = github_client.get_codeowners(owner, repo) or ""
