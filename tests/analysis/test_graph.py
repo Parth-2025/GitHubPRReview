@@ -57,3 +57,18 @@ def test_blast_radius_score_excludes_changed_files():
     g = _graph()
     score = g.blast_radius_score(["c.py"], now=datetime(2026, 1, 1))
     assert score == 0.0
+
+
+def test_blast_radius_score_handles_z_suffixed_timezone_aware_commit_date():
+    # Real GitHub API dates are RFC 3339 with a trailing "Z" (e.g.
+    # "2025-12-20T00:00:00Z"), which datetime.fromisoformat parses as
+    # timezone-aware. This must not raise when compared against `now`.
+    now = datetime(2026, 1, 1)
+    files = [
+        FileNode(path="a.py"),
+        FileNode(path="b.py", last_commit_date="2025-12-20T00:00:00Z"),
+    ]
+    edges = [DependencyEdge(importer="b.py", imported="a.py")]
+    g = DependencyGraph(files, edges)
+    score = g.blast_radius_score(["a.py"], recent_activity_days=90, now=now)
+    assert score == 2.0

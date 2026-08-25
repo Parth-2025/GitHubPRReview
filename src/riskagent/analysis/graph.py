@@ -1,8 +1,22 @@
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from riskagent.models import FileNode, DependencyEdge
+
+
+def _parse_commit_date(date_str: str) -> datetime:
+    """Parse a commit date string into a timezone-aware UTC datetime.
+
+    Handles both RFC 3339 strings with a trailing "Z" (as returned by the
+    real GitHub API) and naive ISO-format strings (as used by some test
+    fixtures), normalizing both to timezone-aware UTC so comparisons never
+    mix naive and aware datetimes.
+    """
+    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 class DependencyGraph:
@@ -37,14 +51,16 @@ class DependencyGraph:
         return affected
 
     def blast_radius_score(self, changed_files: list[str], recent_activity_days: int = 90, now: Optional[datetime] = None) -> float:
-        now = now or datetime.utcnow()
+        now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
         affected = self.affected_files(changed_files) - set(changed_files)
         score = 0.0
         for path in affected:
             node = self._file_by_path.get(path)
             weight = 1.0
             if node and node.last_commit_date:
-                commit_dt = datetime.fromisoformat(node.last_commit_date)
+                commit_dt = _parse_commit_date(node.last_commit_date)
                 if (now - commit_dt).days <= recent_activity_days:
                     weight = 2.0
             score += weight

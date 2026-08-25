@@ -49,3 +49,15 @@ def test_does_not_flag_file_with_no_commit_date():
     files = [FileNode(path="unknown.py", last_commit_date=None)]
     graph = DependencyGraph(files, [])
     assert find_dead_code_candidates(graph, cutoff_days=180, now=now) == []
+
+
+def test_handles_z_suffixed_timezone_aware_commit_date():
+    # Real GitHub API dates are RFC 3339 with a trailing "Z" (e.g.
+    # "2025-06-01T00:00:00Z"), which datetime.fromisoformat parses as
+    # timezone-aware. This must not raise when compared against `now`.
+    now = datetime(2026, 1, 1)
+    files = [FileNode(path="orphan.py", last_commit_date="2025-01-01T00:00:00Z")]
+    graph = DependencyGraph(files, [])
+    candidates = find_dead_code_candidates(graph, cutoff_days=180, now=now)
+    assert len(candidates) == 1
+    assert candidates[0].file_path == "orphan.py"
