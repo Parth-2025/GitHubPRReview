@@ -45,10 +45,12 @@ class GitHubClient:
         resp = requests.get(url, headers=self._headers(), params={"path": path})
         resp.raise_for_status()
         commits = resp.json()
-        return [
-            {"author": c["commit"]["author"]["name"], "date": c["commit"]["author"]["date"]}
-            for c in commits
-        ]
+        result = []
+        for c in commits:
+            linked_author = c.get("author")
+            login = linked_author["login"] if linked_author is not None else c["commit"]["author"]["name"]
+            result.append({"author": login, "date": c["commit"]["author"]["date"]})
+        return result
 
     def get_open_pull_requests(self, owner: str, repo: str) -> list[dict]:
         url = f"{self.base_url}/repos/{owner}/{repo}/pulls"

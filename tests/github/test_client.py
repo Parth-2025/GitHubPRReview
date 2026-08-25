@@ -49,11 +49,27 @@ def test_get_codeowners_returns_none_on_404(mock_get):
 @patch("riskagent.github.client.requests.get")
 def test_get_commit_history_maps_author_and_date(mock_get):
     mock_get.return_value = _mock_response([
-        {"commit": {"author": {"name": "alice", "date": "2026-01-01T00:00:00Z"}}}
+        {
+            "commit": {"author": {"name": "Alice Smith", "date": "2026-01-01T00:00:00Z"}},
+            "author": {"login": "alice"},
+        }
     ])
     client = GitHubClient(token="fake-token")
     history = client.get_commit_history("owner", "repo", "a.py")
     assert history == [{"author": "alice", "date": "2026-01-01T00:00:00Z"}]
+
+
+@patch("riskagent.github.client.requests.get")
+def test_get_commit_history_falls_back_to_display_name_when_unlinked(mock_get):
+    mock_get.return_value = _mock_response([
+        {
+            "commit": {"author": {"name": "Alice Smith", "date": "2026-01-01T00:00:00Z"}},
+            "author": None,
+        }
+    ])
+    client = GitHubClient(token="fake-token")
+    history = client.get_commit_history("owner", "repo", "a.py")
+    assert history == [{"author": "Alice Smith", "date": "2026-01-01T00:00:00Z"}]
 
 
 @patch("riskagent.github.client.requests.get")
