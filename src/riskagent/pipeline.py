@@ -28,7 +28,7 @@ def analyze_repo(
         resolved_owner, ties = resolve_owner(p, codeowners, authors)
         if ties:
             resolved_owner = resolve_owner_tiebreak(p, ties, llm_client)
-        is_entry = p.endswith("__init__.py") or p.endswith("main.py")
+        is_entry = p == "main.py" or p.endswith("/main.py") or p.endswith("__init__.py")
         file_nodes.append(
             FileNode(path=p, is_entry_point=is_entry, last_commit_date=last_commit_date, primary_owner=resolved_owner)
         )
