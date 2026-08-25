@@ -37,10 +37,38 @@ def test_judge_dead_code_candidate_raises_on_non_json():
         judge_dead_code_candidate(candidate, "content", llm)
 
 
+def test_judge_dead_code_candidate_raises_on_missing_key():
+    candidate = DeadCodeCandidate(file_path="old.py", reason="no inbound edges")
+    llm = FakeLLMClient(responder=lambda s, u: json.dumps({"verdict": "dead"}))
+    with pytest.raises(ValueError):
+        judge_dead_code_candidate(candidate, "content", llm)
+
+
+def test_judge_dead_code_candidate_raises_on_non_object_json():
+    candidate = DeadCodeCandidate(file_path="old.py", reason="no inbound edges")
+    llm = FakeLLMClient(responder=lambda s, u: json.dumps(["dead", "unused"]))
+    with pytest.raises(ValueError):
+        judge_dead_code_candidate(candidate, "content", llm)
+
+
 def test_resolve_owner_tiebreak_returns_chosen_owner():
     llm = FakeLLMClient(responder=lambda s, u: json.dumps({"owner": "alice", "justification": "most recent"}))
     owner = resolve_owner_tiebreak("pkg/mod.py", ["alice", "bob"], llm)
     assert owner == "alice"
+
+
+def test_resolve_owner_tiebreak_raises_on_missing_key():
+    llm = FakeLLMClient(responder=lambda s, u: json.dumps({"justification": "most recent"}))
+    with pytest.raises(ValueError):
+        resolve_owner_tiebreak("pkg/mod.py", ["alice", "bob"], llm)
+
+
+def test_resolve_owner_tiebreak_raises_on_owner_not_in_candidates():
+    llm = FakeLLMClient(
+        responder=lambda s, u: json.dumps({"owner": "mallory", "justification": "invented"})
+    )
+    with pytest.raises(ValueError):
+        resolve_owner_tiebreak("pkg/mod.py", ["alice", "bob"], llm)
 
 
 def test_write_risk_justification_sets_text():
@@ -49,3 +77,11 @@ def test_write_risk_justification_sets_text():
     llm = FakeLLMClient(responder=lambda s, u: json.dumps({"justification": "This touches a.py, owned by alice."}))
     result = write_risk_justification(risk_flag, pr, llm)
     assert result.justification == "This touches a.py, owned by alice."
+
+
+def test_write_risk_justification_raises_on_missing_key():
+    risk_flag = RiskFlag(pr_number=1, score=3.0, affected_files=["a.py"], affected_owners=["alice"])
+    pr = PullRequest(number=1, files_changed=["b.py"], diff_summary="refactor")
+    llm = FakeLLMClient(responder=lambda s, u: json.dumps({}))
+    with pytest.raises(ValueError):
+        write_risk_justification(risk_flag, pr, llm)
