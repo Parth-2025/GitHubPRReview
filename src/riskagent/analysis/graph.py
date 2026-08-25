@@ -1,9 +1,12 @@
 from collections import deque
 from datetime import datetime
+from typing import Optional
+
+from riskagent.models import FileNode, DependencyEdge
 
 
 class DependencyGraph:
-    def __init__(self, files, edges):
+    def __init__(self, files: list[FileNode], edges: list[DependencyEdge]):
         self.files = files
         self.edges = edges
         self._file_by_path = {f.path: f for f in files}
@@ -11,10 +14,10 @@ class DependencyGraph:
         for e in edges:
             self._reverse.setdefault(e.imported, set()).add(e.importer)
 
-    def direct_dependents(self, path: str) -> set:
+    def direct_dependents(self, path: str) -> set[str]:
         return set(self._reverse.get(path, set()))
 
-    def dependents_of(self, path: str) -> set:
+    def dependents_of(self, path: str) -> set[str]:
         visited = set()
         queue = deque(self._reverse.get(path, set()))
         while queue:
@@ -27,13 +30,13 @@ class DependencyGraph:
                     queue.append(parent)
         return visited
 
-    def affected_files(self, changed_files: list) -> set:
+    def affected_files(self, changed_files: list[str]) -> set[str]:
         affected = set(changed_files)
         for cf in changed_files:
             affected |= self.dependents_of(cf)
         return affected
 
-    def blast_radius_score(self, changed_files: list, recent_activity_days: int = 90, now=None) -> float:
+    def blast_radius_score(self, changed_files: list[str], recent_activity_days: int = 90, now: Optional[datetime] = None) -> float:
         now = now or datetime.utcnow()
         affected = self.affected_files(changed_files) - set(changed_files)
         score = 0.0
