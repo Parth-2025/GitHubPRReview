@@ -1,5 +1,7 @@
 from unittest.mock import Mock
 
+import pytest
+
 from riskagent.models import RiskFlag, DeadCodeCandidate
 from riskagent.actions.writeback import post_risk_comment, file_dead_code_issue
 
@@ -33,3 +35,17 @@ def test_file_dead_code_issue_calls_client_and_sets_status():
         labels=["cleanup-candidate"],
     )
     assert result.status == "issue_filed"
+
+
+def test_file_dead_code_issue_raises_for_rejected_candidate():
+    client = Mock()
+    candidate = DeadCodeCandidate(
+        file_path="old.py",
+        reason="orphaned",
+        verdict=False,
+        justification="false positive: dynamic plugin",
+        status="rejected",
+    )
+    with pytest.raises(ValueError):
+        file_dead_code_issue(client, "owner", "repo", candidate, assignee="alice")
+    client.create_issue.assert_not_called()

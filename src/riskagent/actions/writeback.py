@@ -19,6 +19,8 @@ def post_risk_comment(client: GitHubClient, owner: str, repo: str, risk_flag: Ri
 def file_dead_code_issue(
     client: GitHubClient, owner: str, repo: str, candidate: DeadCodeCandidate, assignee: Optional[str] = None
 ) -> DeadCodeCandidate:
+    if candidate.verdict is False or candidate.status == "rejected":
+        raise ValueError("Cannot file an issue for a rejected dead-code candidate")
     title = f"Cleanup candidate: {candidate.file_path}"
     body = f"{candidate.justification}\n\nFlagged by automated dead-code analysis."
     client.create_issue(owner, repo, title, body, assignee=assignee, labels=["cleanup-candidate"])
