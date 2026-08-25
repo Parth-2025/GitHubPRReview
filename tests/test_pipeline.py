@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 from unittest.mock import Mock
 
 from riskagent.pipeline import analyze_repo
@@ -18,8 +19,8 @@ def _fixture_github_client():
 
     def commit_history(owner, repo, path):
         if path == "pkg/orphan.py":
-            return [{"author": "bob", "date": "2020-01-01T00:00:00"}]
-        return [{"author": "alice", "date": "2026-07-01T00:00:00"}]
+            return [{"author": "bob", "date": (datetime.utcnow() - timedelta(days=3000)).isoformat()}]
+        return [{"author": "alice", "date": (datetime.utcnow() - timedelta(days=30)).isoformat()}]
 
     client.get_commit_history.side_effect = commit_history
     client.get_open_pull_requests.return_value = [
