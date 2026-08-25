@@ -45,3 +45,15 @@ def test_build_dependency_edges_ignores_self_and_external():
     }
     edges = build_dependency_edges(files)
     assert edges == []
+
+
+def test_build_dependency_edges_prefers_longest_prefix_match():
+    files = {
+        "pkg/__init__.py": "",
+        "pkg/sub/__init__.py": "",
+        "pkg/a.py": "import pkg.sub.mod\n",
+    }
+    edges = build_dependency_edges(files)
+    assert len(edges) == 1
+    assert edges[0].importer == "pkg/a.py"
+    assert edges[0].imported == "pkg/sub/__init__.py"
