@@ -92,3 +92,25 @@ def test_analyze_repo_does_not_treat_domain_py_as_entry_point():
 
     candidate_paths = {c.file_path for c in result["dead_code_candidates"]}
     assert "pkg/domain.py" in candidate_paths
+
+
+def test_analyze_repo_respects_max_files():
+    github_client = _fixture_github_client()
+    llm_client = _fixture_llm_client()
+
+    result = analyze_repo(github_client, llm_client, "owner", "repo", max_files=1)
+
+    assert [f.path for f in result["graph"].files] == ["pkg/a.py"]
+
+
+def test_analyze_repo_below_threshold_skips_justification():
+    github_client = _fixture_github_client()
+    llm_client = _fixture_llm_client()
+
+    result = analyze_repo(
+        github_client, llm_client, "owner", "repo", risk_score_threshold=99.0
+    )
+
+    assert len(result["risk_flags"]) == 1
+    assert result["risk_flags"][0].status == "below_threshold"
+    assert result["risk_flags"][0].justification == ""

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from riskagent.models import FileNode, PullRequest, RiskFlag
 from riskagent.parsing.import_parser import build_dependency_edges
 from riskagent.analysis.graph import DependencyGraph
@@ -13,9 +15,18 @@ from riskagent.github.client import GitHubClient
 
 
 def analyze_repo(
-    github_client: GitHubClient, llm_client: LLMClient, owner: str, repo: str, branch: str = "main"
+    github_client: GitHubClient,
+    llm_client: LLMClient,
+    owner: str,
+    repo: str,
+    branch: str = "main",
+    *,
+    max_files: Optional[int] = None,
+    risk_score_threshold: float = 0.0,
 ) -> dict:
     paths = github_client.get_repo_tree(owner, repo, branch)
+    if max_files is not None:
+        paths = paths[:max_files]
     file_sources = {p: github_client.get_file_content(owner, repo, p, branch) for p in paths}
     codeowners_text = github_client.get_codeowners(owner, repo) or ""
     codeowners = parse_codeowners(codeowners_text)
@@ -48,7 +59,10 @@ def analyze_repo(
         risk_flag = RiskFlag(
             pr_number=pr.number, score=score, affected_files=sorted(affected), affected_owners=owners
         )
-        risk_flag = write_risk_justification(risk_flag, pr, llm_client)
+        if score >= risk_score_threshold:
+            risk_flag = write_risk_justification(risk_flag, pr, llm_client)
+        else:
+            risk_flag.status = "below_threshold"
         risk_flags.append(risk_flag)
 
     candidates = find_dead_code_candidates(graph)
