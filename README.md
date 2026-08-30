@@ -13,7 +13,11 @@ Ontology, AIP Logic agents, and Workshop Actions — see
 
 ## Install
 
-    pip install -r requirements.txt
+    pip install -e .
+
+(or `pip install -r requirements.txt`, which does the same editable install
+plus pytest). After this, `python -m riskagent ...` works from anywhere — no
+`PYTHONPATH=src` needed.
 
 Tests (no network, no API keys needed):
 
@@ -34,6 +38,11 @@ Dry run — no Gemini key, canned verdicts, exercises the GitHub + graph half:
 
     python -m riskagent pallets/click --dry-run --max-files 40
 
+> **Gemini rate limits:** `analyze_repo` makes one LLM call per open PR, per
+> dead-code candidate, and per owner tie. On a free-tier Gemini key a
+> rate-limit response (HTTP 429) aborts the run. Use `--max-files` to shrink
+> the graph (fewer calls) or `--dry-run` to avoid Gemini entirely.
+
 Actually post findings to GitHub (needs a token with `repo` / `public_repo`
 write scope; prompts before writing unless `--yes`):
 
@@ -44,7 +53,7 @@ write scope; prompts before writing unless `--yes`):
 | Flag | Meaning |
 |---|---|
 | `--branch NAME` | Branch to analyze (default: the repo's default branch) |
-| `--max-files N` | Only analyze the first N Python files (rate-limit safety) |
+| `--max-files N` | Only analyze the first N Python files (rate-limit safety); truncating the tree disables dead-code detection (needs the full import graph) |
 | `--risk-threshold X` | Only write a justification for PRs scoring >= X |
 | `--dry-run` | Use the offline scripted LLM client (no `GEMINI_API_KEY`) |
 | `--model NAME` | Gemini model (default `gemini-2.0-flash`; `gemini-1.5-flash` also works) |

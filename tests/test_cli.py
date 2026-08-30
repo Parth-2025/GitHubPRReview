@@ -112,7 +112,7 @@ def test_post_declined_writes_nothing(
     mock_analyze.return_value = _writeback_result()
     monkeypatch.setattr("builtins.input", lambda _prompt: "n")
 
-    main(["o/r", "--dry-run", "--post"])
+    main(["o/r", "--post"])
 
     mock_comment.assert_not_called()
     mock_issue.assert_not_called()
@@ -131,9 +131,55 @@ def test_post_with_yes_calls_writeback(
     mock_github.return_value = gh
     mock_analyze.return_value = _writeback_result()
 
-    main(["o/r", "--dry-run", "--post", "--yes"])
+    main(["o/r", "--post", "--yes"])
 
     mock_comment.assert_called_once()
     mock_issue.assert_called_once()
     _, kwargs = mock_issue.call_args
     assert kwargs["assignee"] == "alice"
+
+
+@patch("riskagent.cli._make_llm")
+@patch("riskagent.cli._make_github")
+def test_dry_run_with_post_is_rejected(mock_github, mock_llm):
+    with pytest.raises(SystemExit) as exc:
+        main(["o/r", "--dry-run", "--post"])
+    assert exc.value.code != 0
+
+
+@patch("riskagent.cli._make_llm")
+@patch("riskagent.cli._make_github")
+def test_bad_repo_url_exits_cleanly(mock_github, mock_llm):
+    with pytest.raises(SystemExit):
+        main(["https://gitlab.com/x/y"])
+
+
+def test_format_report_notes_dead_code_skipped():
+    result = {
+        "graph": DependencyGraph([], []),
+        "risk_flags": [],
+        "dead_code_candidates": [],
+        "dead_code_skipped": True,
+    }
+    text = format_report(result)
+    assert "skipped" in text
+    assert "--max-files" in text
+
+
+@patch("riskagent.cli._make_llm")
+@patch("riskagent.cli.analyze_repo")
+def test_missing_github_token_exits(mock_analyze, mock_llm, monkeypatch):
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    with pytest.raises(SystemExit) as exc:
+        main(["o/r"])
+    assert "GITHUB_TOKEN" in str(exc.value)
+
+
+@patch("riskagent.cli.analyze_repo")
+@patch("riskagent.cli._make_github")
+def test_missing_gemini_key_exits(mock_github, mock_analyze, monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "x")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(SystemExit) as exc:
+        main(["o/r"])
+    assert "GEMINI_API_KEY" in str(exc.value)

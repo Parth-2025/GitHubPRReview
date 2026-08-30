@@ -20,7 +20,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--branch", default=None, help="Branch to analyze (default: the repo's default branch)"
     )
     parser.add_argument(
-        "--max-files", type=int, default=None, help="Only analyze the first N Python files"
+        "--max-files",
+        type=int,
+        default=None,
+        help=(
+            "Only analyze the first N Python files. Truncating the tree disables "
+            "dead-code detection, which needs the full import graph."
+        ),
     )
     parser.add_argument(
         "--risk-threshold",
@@ -78,7 +84,12 @@ def format_report(result: dict) -> str:
         if rf.justification:
             lines.append(f"    reasoning: {rf.justification}")
     lines += ["", "== Dead-code candidates =="]
-    if not result["dead_code_candidates"]:
+    if result.get("dead_code_skipped"):
+        lines.append(
+            "  (skipped: --max-files truncated the import graph, dead-code "
+            "detection needs the full repo)"
+        )
+    elif not result["dead_code_candidates"]:
         lines.append("  (none)")
     for c in result["dead_code_candidates"]:
         if c.status == "rejected":
@@ -113,8 +124,17 @@ def _run_writeback(args, github, owner, repo, result) -> None:
 
 
 def main(argv=None) -> int:
-    args = build_arg_parser().parse_args(argv)
-    owner, repo = parse_repo_url(args.repo)
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    if args.dry_run and args.post:
+        parser.error(
+            "--dry-run cannot be combined with --post: --dry-run only fakes the "
+            "LLM, GitHub writeback would still be live"
+        )
+    try:
+        owner, repo = parse_repo_url(args.repo)
+    except ValueError as e:
+        raise SystemExit(str(e))
     github = _make_github(args)
     llm = _make_llm(args)
     branch = args.branch or github.get_default_branch(owner, repo)

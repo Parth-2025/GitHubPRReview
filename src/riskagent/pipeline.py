@@ -24,9 +24,9 @@ def analyze_repo(
     max_files: Optional[int] = None,
     risk_score_threshold: float = 0.0,
 ) -> dict:
-    paths = github_client.get_repo_tree(owner, repo, branch)
-    if max_files is not None:
-        paths = paths[:max_files]
+    full_paths = github_client.get_repo_tree(owner, repo, branch)
+    dead_code_skipped = max_files is not None and len(full_paths) > max_files
+    paths = full_paths[:max_files] if max_files is not None else full_paths
     file_sources = {p: github_client.get_file_content(owner, repo, p, branch) for p in paths}
     codeowners_text = github_client.get_codeowners(owner, repo) or ""
     codeowners = parse_codeowners(codeowners_text)
@@ -65,10 +65,16 @@ def analyze_repo(
             risk_flag.status = "below_threshold"
         risk_flags.append(risk_flag)
 
-    candidates = find_dead_code_candidates(graph)
     judged_candidates = []
-    for candidate in candidates:
-        content = file_sources.get(candidate.file_path, "")
-        judged_candidates.append(judge_dead_code_candidate(candidate, content, llm_client))
+    if not dead_code_skipped:
+        candidates = find_dead_code_candidates(graph)
+        for candidate in candidates:
+            content = file_sources.get(candidate.file_path, "")
+            judged_candidates.append(judge_dead_code_candidate(candidate, content, llm_client))
 
-    return {"graph": graph, "risk_flags": risk_flags, "dead_code_candidates": judged_candidates}
+    return {
+        "graph": graph,
+        "risk_flags": risk_flags,
+        "dead_code_candidates": judged_candidates,
+        "dead_code_skipped": dead_code_skipped,
+    }

@@ -25,7 +25,7 @@ class GitHubClient:
 
     def get_default_branch(self, owner: str, repo: str) -> str:
         url = f"{self.base_url}/repos/{owner}/{repo}"
-        resp = requests.get(url, headers=self._headers())
+        resp = requests.get(url, headers=self._headers(), timeout=30)
         resp.raise_for_status()
         return resp.json()["default_branch"]
 

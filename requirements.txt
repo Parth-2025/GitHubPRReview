@@ -1,3 +1,2 @@
-# requirements.txt
-requests>=2.31
-pytest>=8.0
+# Editable install of the riskagent package plus dev extras (pytest).
+-e .[dev]
