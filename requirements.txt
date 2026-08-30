@@ -1,0 +1,2 @@
+# Editable install of the riskagent package plus dev extras (pytest).
+-e .[dev]

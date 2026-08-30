@@ -104,3 +104,10 @@ def test_create_issue_includes_assignee_and_labels(mock_post):
     _, kwargs = mock_post.call_args
     assert kwargs["json"]["assignees"] == ["alice"]
     assert kwargs["json"]["labels"] == ["cleanup-candidate"]
+
+
+@patch("riskagent.github.client.requests.get")
+def test_get_default_branch(mock_get):
+    mock_get.return_value = _mock_response({"default_branch": "master"})
+    client = GitHubClient(token="fake-token")
+    assert client.get_default_branch("owner", "repo") == "master"

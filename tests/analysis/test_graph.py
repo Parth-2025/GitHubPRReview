@@ -72,3 +72,9 @@ def test_blast_radius_score_handles_z_suffixed_timezone_aware_commit_date():
     g = DependencyGraph(files, edges)
     score = g.blast_radius_score(["a.py"], recent_activity_days=90, now=now)
     assert score == 2.0
+
+
+def test_file_accessor_returns_node_or_none():
+    g = _graph()
+    assert g.file("a.py").path == "a.py"
+    assert g.file("missing.py") is None

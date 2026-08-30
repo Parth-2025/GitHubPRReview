@@ -51,7 +51,12 @@ def test_analyze_repo_produces_risk_flags_and_dead_code_candidates():
 
     result = analyze_repo(github_client, llm_client, "owner", "repo")
 
-    assert set(result.keys()) == {"graph", "risk_flags", "dead_code_candidates"}
+    assert set(result.keys()) == {
+        "graph",
+        "risk_flags",
+        "dead_code_candidates",
+        "dead_code_skipped",
+    }
 
     risk_flags = result["risk_flags"]
     assert len(risk_flags) == 1
@@ -92,3 +97,45 @@ def test_analyze_repo_does_not_treat_domain_py_as_entry_point():
 
     candidate_paths = {c.file_path for c in result["dead_code_candidates"]}
     assert "pkg/domain.py" in candidate_paths
+
+
+def test_analyze_repo_respects_max_files():
+    github_client = _fixture_github_client()
+    llm_client = _fixture_llm_client()
+
+    result = analyze_repo(github_client, llm_client, "owner", "repo", max_files=1)
+
+    assert [f.path for f in result["graph"].files] == ["pkg/a.py"]
+
+
+def test_analyze_repo_max_files_truncation_skips_dead_code():
+    github_client = _fixture_github_client()  # fixture has 3 files
+    llm_client = _fixture_llm_client()
+
+    result = analyze_repo(github_client, llm_client, "owner", "repo", max_files=2)
+
+    assert result["dead_code_candidates"] == []
+    assert result["dead_code_skipped"] is True
+
+
+def test_analyze_repo_no_max_files_runs_dead_code():
+    github_client = _fixture_github_client()
+    llm_client = _fixture_llm_client()
+
+    result = analyze_repo(github_client, llm_client, "owner", "repo", max_files=None)
+
+    assert result["dead_code_skipped"] is False
+    assert [c.file_path for c in result["dead_code_candidates"]] == ["pkg/orphan.py"]
+
+
+def test_analyze_repo_below_threshold_skips_justification():
+    github_client = _fixture_github_client()
+    llm_client = _fixture_llm_client()
+
+    result = analyze_repo(
+        github_client, llm_client, "owner", "repo", risk_score_threshold=99.0
+    )
+
+    assert len(result["risk_flags"]) == 1
+    assert result["risk_flags"][0].status == "below_threshold"
+    assert result["risk_flags"][0].justification == ""

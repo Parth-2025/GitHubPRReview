@@ -23,6 +23,12 @@ class GitHubClient:
             if item.get("type") == "blob" and item["path"].endswith(".py")
         ]
 
+    def get_default_branch(self, owner: str, repo: str) -> str:
+        url = f"{self.base_url}/repos/{owner}/{repo}"
+        resp = requests.get(url, headers=self._headers(), timeout=30)
+        resp.raise_for_status()
+        return resp.json()["default_branch"]
+
     def get_file_content(self, owner: str, repo: str, path: str, ref: str = "main") -> str:
         url = f"{self.base_url}/repos/{owner}/{repo}/contents/{path}"
         resp = requests.get(url, headers=self._headers(), params={"ref": ref})

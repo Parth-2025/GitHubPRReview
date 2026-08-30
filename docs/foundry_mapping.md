@@ -24,3 +24,23 @@ Foundry/AIP construct as follows:
 - The AIP Logic agents — created in AIP Logic Studio, using the prompts in `riskagent.agent.prompts` as their system prompts, with the response JSON schemas documented in the same file.
 - The Workshop app — repo-URL input widget, GitHub OAuth/admin-access confirmation, "Analyze" trigger button, results tables for open PRs and dead-code candidates, and per-row "Post comment" / "File issue" Action buttons.
 - Wiring the GitHub OAuth App used for admin-level repo access, and storing its token as a Foundry credential the Code Repository transform can read.
+
+## Local runnable demo (stand-in for the Workshop app + AIP Logic)
+
+`python -m riskagent <repo>` (`src/riskagent/cli.py`) runs the same
+`analyze_repo` orchestration the Workshop "Analyze" button will trigger,
+and its `--post` path calls the same `riskagent.actions.writeback`
+functions the Workshop Action buttons will call. It exists to validate the
+analysis logic against real repositories before the Foundry build.
+
+| Local demo piece | Foundry/AIP equivalent it stands in for |
+|---|---|
+| `riskagent.cli.main` / `--post` flow | Workshop app "Analyze" button + per-row "Post comment" / "File issue" Action buttons |
+| `riskagent.agent.gemini_client.GeminiLLMClient` | The real **AIP Logic SDK client**. Write one class with the same `complete(system_prompt, user_prompt) -> str` method, calling the three deployed AIP Logic functions, and pass it where `cli._make_llm` passes `GeminiLLMClient`. No other code changes. |
+| `riskagent.agent.scripted_client.ScriptedLLMClient` | Nothing — local `--dry-run` convenience only. |
+| `GITHUB_TOKEN` env var | The GitHub OAuth App token stored as a Foundry credential the Code Repository transform reads. |
+
+The system prompts in `src/riskagent/agent/prompts.py` are the literal text
+to paste into the three AIP Logic function configurations; the JSON
+response schema each function must return is documented alongside each
+prompt.

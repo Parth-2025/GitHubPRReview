@@ -31,6 +31,9 @@ class DependencyGraph:
     def direct_dependents(self, path: str) -> set[str]:
         return set(self._reverse.get(path, set()))
 
+    def file(self, path: str) -> Optional[FileNode]:
+        return self._file_by_path.get(path)
+
     def dependents_of(self, path: str) -> set[str]:
         visited = set()
         queue = deque(self._reverse.get(path, set()))
