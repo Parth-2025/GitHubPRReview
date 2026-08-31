@@ -56,9 +56,12 @@ write scope; prompts before writing unless `--yes`):
 | `--max-files N` | Only analyze the first N Python files (rate-limit safety); truncating the tree disables dead-code detection (needs the full import graph) |
 | `--risk-threshold X` | Only write a justification for PRs scoring >= X |
 | `--dry-run` | Use the offline scripted LLM client (no `GEMINI_API_KEY`) |
-| `--model NAME` | Gemini model (default `gemini-2.0-flash`; `gemini-1.5-flash` also works) |
+| `--model NAME` | Gemini model (default `gemini-3.6-flash`). Older names like `gemini-2.0-flash` / `gemini-2.5-flash` are 404 on new API keys. Run `curl -s -H "x-goog-api-key: $GEMINI_API_KEY" https://generativelanguage.googleapis.com/v1beta/models` to see what your key can call. |
+| `--timeout SECONDS` | Per-call Gemini HTTP timeout (default 120). Thinking models spend most of their time before the first byte. |
 | `--post` | Post PR comments / file issues for findings |
 | `--yes` | Skip the `--post` confirmation prompt |
+
+> **Gemini free-tier note:** the default model is a *thinking* model — each call takes ~10–40s, and `analyze_repo` makes one call per open PR, per owner tie, and per dead-code candidate. On a large repo this is slow and can hit rate limits (HTTP 404/429). Use `--max-files` and pick a repo with few open PRs, or `--dry-run` to exercise everything except the LLM.
 
 ## The LLM seam
 

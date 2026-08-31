@@ -39,7 +39,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Use the offline scripted LLM client (no GEMINI_API_KEY needed)",
     )
-    parser.add_argument("--model", default="gemini-2.0-flash", help="Gemini model name")
+    parser.add_argument("--model", default="gemini-3.6-flash", help="Gemini model name")
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        help="Per-call Gemini HTTP timeout in seconds (thinking models can be slow)",
+    )
     parser.add_argument(
         "--post",
         action="store_true",
@@ -70,7 +76,7 @@ def _make_llm(args):
             "GEMINI_API_KEY is not set. Get one at https://aistudio.google.com/apikey "
             "and `export GEMINI_API_KEY=...`, or pass --dry-run to use the offline client."
         )
-    return GeminiLLMClient(api_key=key, model=args.model)
+    return GeminiLLMClient(api_key=key, model=args.model, timeout=args.timeout)
 
 
 def format_report(result: dict) -> str:
