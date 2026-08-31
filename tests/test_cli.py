@@ -16,7 +16,8 @@ def test_build_arg_parser_basic():
     assert args.dry_run is True
     assert args.max_files == 5
     assert args.risk_threshold == 2.5
-    assert args.model == "gemini-2.0-flash"
+    assert args.model == "gemini-3.6-flash"
+    assert args.timeout == 120
 
 
 def test_help_exits_zero():

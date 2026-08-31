@@ -13,9 +13,9 @@ class GeminiLLMClient:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-3.6-flash",
         base_url: str = "https://generativelanguage.googleapis.com",
-        timeout: int = 30,
+        timeout: int = 120,
     ):
         self.api_key = api_key
         self.model = model
@@ -41,7 +41,11 @@ class GeminiLLMClient:
             json=payload,
             timeout=self.timeout,
         )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            raise requests.HTTPError(
+                f"{resp.status_code} from Gemini ({self.model}): {str(resp.text)[:500]}",
+                response=resp,
+            )
         data = resp.json()
         candidates = data.get("candidates") or []
         if not candidates:
